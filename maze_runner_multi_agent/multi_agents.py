@@ -184,8 +184,42 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         plies. Model every Griever as choosing uniformly at random among its
         legal actions, so a Griever's value is the AVERAGE of its children.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        numAgents = gameState.getNumAgents()
+        legalActions = gameState.getLegalActions(0)
+        if not legalActions:
+            return None
+
+        def value(state, agentIndex, depth):
+            if depth == self.depth or state.isWin() or state.isLose():
+                return self.evaluationFunction(state)
+
+            actions = state.getLegalActions(agentIndex)
+            nextAgent = (agentIndex + 1) % numAgents
+            nextDepth = depth + 1 if nextAgent == 0 else depth
+
+            childValues = []
+            for action in actions:
+                successor = state.generateSuccessor(agentIndex, action)
+                childValues.append(value(successor, nextAgent, nextDepth))
+
+            if agentIndex == 0:
+                return max(childValues)
+            return sum(childValues) / len(childValues)
+
+        bestAction = legalActions[0]
+        bestValue = float('-inf')
+        nextAgent = 1 % numAgents
+        nextDepth = 1 if nextAgent == 0 else 0
+
+        for action in legalActions:
+            successor = gameState.generateSuccessor(0, action)
+            actionValue = value(successor, nextAgent, nextDepth)
+            if actionValue > bestValue:
+                bestValue = actionValue
+                bestAction = action
+
+        return bestAction
+
 
 
 # ----------------------------------------------------------------------
@@ -193,15 +227,39 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
 # ----------------------------------------------------------------------
 def betterEvaluationFunction(currentGameState):
     """
-    Q5: a much better evaluation function for the search agents.
+    Q5: score states by game score, objective progress, danger, and time.
 
-    Unlike the Q1 evaluation function, this one scores a STATE, not an
-    action. Describe what it does here and in your report:
-
-    DESCRIPTION: <write something here>
+    DESCRIPTION : It rewards collecting code pieces and reaching the exit, while favoring
+    states farther from Grievers and with enough moves left to reach the next
+    objective.
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    score = currentGameState.getScore()
+    if currentGameState.isWin() or currentGameState.isLose():
+        return score
+
+    runnerPosition = currentGameState.getRunnerPosition()
+    keys = currentGameState.getKeys()
+    if keys:
+        targetDistance = min(currentGameState.mazeDistance(runnerPosition, key)
+                             for key in keys)
+        score -= 25 * len(keys)
+    else:
+        targetDistance = currentGameState.mazeDistance(
+            runnerPosition, currentGameState.getExit())
+
+    score -= 2 * targetDistance
+
+    grieverPositions = currentGameState.getGrieverPositions()
+    if grieverPositions:
+        closestGrieverDistance = min(
+            currentGameState.mazeDistance(runnerPosition, griever)
+            for griever in grieverPositions)
+        score -= 20.0 / max(1, closestGrieverDistance)
+
+    if targetDistance >= currentGameState.getTimeLeft():
+        score -= 50
+
+    return score
 
 
 # Abbreviation
